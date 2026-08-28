@@ -4,12 +4,23 @@ import fs from 'fs';
 import { createServer as createViteServer } from 'vite';
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import youtubedl from 'youtube-dl-exec';
 import { GoogleGenAI, Type } from '@google/genai';
 
 const execAsync = promisify(exec);
 
+async function ensureYtDlp() {
+  const ytdlpPath = path.resolve(process.cwd(), 'yt-dlp');
+  if (!fs.existsSync(ytdlpPath)) {
+    console.log('Downloading yt-dlp binary...');
+    await execAsync('wget https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -O yt-dlp');
+    await execAsync('chmod a+rx yt-dlp');
+    console.log('yt-dlp downloaded and ready.');
+  }
+}
+
 async function startServer() {
+  await ensureYtDlp();
+
   const app = express();
   const PORT = 3000;
 
@@ -23,7 +34,7 @@ async function startServer() {
 
   app.post('/api/analyze', async (req, res) => {
     try {
-      const { apiKey, url, clipCount, durationLabel } = req.body;
+      const { apiKey, url, cookies, clipCount, durationLabel } = req.body;
       if (!apiKey || !url) {
         return res.status(400).json({ error: 'API Key and URL are required' });
       }
@@ -33,10 +44,26 @@ async function startServer() {
       const videoPath = path.join(videoStoragePath, videoFilename);
 
       console.log('Downloading video...', url);
-      await youtubedl(url, {
-        output: videoPath,
-        format: 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/mp4',
-      });
+      
+      let cookiesArg = '';
+      if (cookies && cookies.trim().length > 0) {
+        const cookiesPath = path.join(videoStoragePath, `cookies_${videoId}.txt`);
+        fs.writeFileSync(cookiesPath, cookies);
+        cookiesArg = `--cookies "${cookiesPath}"`;
+      }
+      
+      const ytdlpPath = path.resolve(process.cwd(), 'yt-dlp');
+      const cmd = `"${ytdlpPath}" "${url}" -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/mp4" -o "${videoPath}" --merge-output-format mp4 ${cookiesArg}`;
+      console.log('Running yt-dlp:', cmd);
+      
+      try {
+        await execAsync(cmd);
+      } catch (e: any) {
+        if (e.stderr && e.stderr.includes('Sign in to confirm')) {
+            throw new Error("YouTube memblokir unduhan (Bot Protection). Silakan masukkan Cookies pada konfigurasi di sidebar.");
+        }
+        throw e;
+      }
 
       console.log('Video downloaded to', videoPath);
 
@@ -63,12 +90,17 @@ async function startServer() {
 
       console.log('Requesting content generation...');
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-pro',
+        model: 'gemini-2.5-flash',
         contents: [
-          fileObj,
+          {
+            fileData: {
+              fileUri: fileObj.uri,
+              mimeType: fileObj.mimeType
+            }
+          },
           `You are an expert viral video editor. Analyze this video. 
 Find the ${clipCount} most engaging, funny, or educational moments. 
-Each clip should be roughly ${durationLabel} long.
+Each clip should ideally be roughly ${durationLabel} long. If the entire video is shorter than the requested duration, just return the most interesting short segments you can find.
 Return the clips in a structured format with clear start/end times in HH:MM:SS format.`
         ],
         config: {
@@ -97,7 +129,11 @@ Return the clips in a structured format with clear start/end times in HH:MM:SS f
       res.json({ success: true, videoPath, clips });
     } catch (error: any) {
       console.error('Error analyzing video:', error);
-      res.status(500).json({ error: error.message || 'Internal server error' });
+      let errMsg = error.message || 'Internal server error';
+      if (errMsg.includes('429') || errMsg.includes('RESOURCE_EXHAUSTED') || errMsg.includes('quota')) {
+          errMsg = 'Limit kuota Gemini API gratis Anda telah habis (Quota Exceeded). Silakan tunggu sekitar 1 menit dan coba lagi, atau gunakan API Key berbayar jika limit harian habis.';
+      }
+      res.status(500).json({ error: errMsg });
     }
   });
 

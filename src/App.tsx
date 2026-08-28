@@ -3,6 +3,7 @@ import React, { useState, useRef } from 'react';
 export default function App() {
   const [apiKey, setApiKey] = useState('');
   const [videoUrl, setVideoUrl] = useState('');
+  const [cookies, setCookies] = useState('');
   const [clipCount, setClipCount] = useState('3 Clips');
   const [duration, setDuration] = useState('15-30s');
   
@@ -32,6 +33,7 @@ export default function App() {
         body: JSON.stringify({
           apiKey,
           url: videoUrl,
+          cookies: cookies,
           clipCount: numClips,
           durationLabel: duration
         })
@@ -120,13 +122,30 @@ export default function App() {
                 />
               </div>
               <div>
-                <p className='text-xs font-medium text-slate-600 mb-1'>YouTube / TikTok URL</p>
+                <div className="flex justify-between items-center mb-1">
+                  <p className='text-xs font-medium text-slate-600'>YouTube / TikTok URL</p>
+                  <button 
+                    onClick={() => setVideoUrl('https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/720/Big_Buck_Bunny_720_10s_5MB.mp4')}
+                    className="text-[9px] text-indigo-600 hover:underline font-bold uppercase"
+                  >
+                    Load Demo URL
+                  </button>
+                </div>
                 <input 
                   type='text' 
                   value={videoUrl}
                   onChange={e => setVideoUrl(e.target.value)}
                   placeholder='https://youtube.com/...'
                   className='w-full px-3 py-2 text-xs border border-slate-200 rounded bg-slate-50 focus:border-indigo-500 outline-none' 
+                />
+              </div>
+              <div>
+                <p className='text-xs font-medium text-slate-600 mb-1'>YouTube Cookies (Optional)</p>
+                <textarea 
+                  value={cookies}
+                  onChange={e => setCookies(e.target.value)}
+                  placeholder='Paste Netscape format cookies here to bypass bot protection...'
+                  className='w-full px-3 py-2 text-xs border border-slate-200 rounded bg-slate-50 focus:border-indigo-500 outline-none h-16 resize-none' 
                 />
               </div>
             </div>
@@ -162,8 +181,18 @@ export default function App() {
           </div>
           
           {errorMsg && (
-            <div className='p-3 bg-red-50 text-red-600 text-xs rounded border border-red-100'>
-              {errorMsg}
+            <div className='p-3 bg-red-50 text-red-600 text-xs rounded border border-red-100 flex flex-col gap-2'>
+              <span className='font-bold'>Error:</span>
+              <span>{errorMsg}</span>
+              {errorMsg.includes('Bot Protection') && (
+                <div className='mt-1 space-y-1 text-[11px] text-red-500'>
+                  <p>Cara mengatasi:</p>
+                  <ul className='list-disc pl-4 space-y-1'>
+                    <li>Gunakan ekstensi browser "Get cookies.txt LOCALLY" dan paste isinya ke kolom Cookies di atas.</li>
+                    <li>Atau, klik <b>"Load Demo URL"</b> di kolom Video URL untuk menguji coba fungsi AI dan FFmpeg tanpa error.</li>
+                  </ul>
+                </div>
+              )}
             </div>
           )}
         </div>
