@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import ReactPlayer from 'react-player';
 
 export default function App() {
   const [apiKey, setApiKey] = useState('');
@@ -244,8 +245,8 @@ export default function App() {
           </div>
         </header>
         
-        <section className='flex-1 p-8 overflow-y-auto min-h-0'>
-          {!analysisDone && !isAnalyzing && (
+        <section className='flex-1 p-8 overflow-y-auto min-h-0 flex flex-col gap-6'>
+          {!videoUrl && !analysisDone && !isAnalyzing && (
             <div className="h-full flex flex-col items-center justify-center text-slate-400 space-y-4">
               <svg className="w-16 h-16 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
@@ -254,8 +255,28 @@ export default function App() {
             </div>
           )}
 
-          <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 h-auto'>
-            {clips.map((clip, idx) => (
+          {videoUrl && (
+            <div className="w-full max-w-3xl mx-auto bg-black rounded-lg overflow-hidden shrink-0 shadow-sm border border-slate-200">
+              <div className="aspect-video relative">
+                {(() => {
+                  const Player = ReactPlayer as any;
+                  return (
+                    <Player 
+                      url={videoUrl} 
+                      width="100%" 
+                      height="100%" 
+                      controls={true}
+                      style={{ position: 'absolute', top: 0, left: 0 }}
+                    />
+                  );
+                })()}
+              </div>
+            </div>
+          )}
+
+          {(clips.length > 0 || analysisDone) && (
+            <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 h-auto'>
+              {clips.map((clip, idx) => (
               <div key={idx} className='bg-white border border-slate-200 rounded-lg flex flex-col p-4 shadow-sm group hover:border-indigo-400 transition-all h-[420px]'>
                 <div className='aspect-[9/16] bg-slate-100 rounded-md mb-4 relative overflow-hidden flex items-center justify-center border border-slate-200 shrink-0 h-[180px]'>
                   <div className='absolute inset-0 bg-gradient-to-t from-black/60 to-transparent'></div>
@@ -330,6 +351,7 @@ export default function App() {
               </div>
             )}
           </div>
+          )}
         </section>
         
         <footer className='h-12 bg-slate-900 text-white flex items-center px-8 text-[10px] font-medium tracking-widest uppercase shrink-0'>
